@@ -82,21 +82,23 @@
 
 class swap_space;
 
-class serialization_context {
+class serialization_context
+{
 public:
-  serialization_context(swap_space &sspace) :
-    ss(sspace),
-    is_leaf(true)
-  {}
+  serialization_context(swap_space &sspace) : ss(sspace),
+                                              is_leaf(true)
+  {
+  }
   swap_space &ss;
   bool is_leaf;
 };
 
-class serializable {
+class serializable
+{
 public:
   virtual void _serialize(std::iostream &fs, serialization_context &context) = 0;
   virtual void _deserialize(std::iostream &fs, serialization_context &context) = 0;
-  virtual ~serializable(void) {};
+  virtual ~serializable(void){};
 };
 
 void serialize(std::iostream &fs, serialization_context &context, uint64_t x);
@@ -108,13 +110,15 @@ void deserialize(std::iostream &fs, serialization_context &context, int64_t &x);
 void serialize(std::iostream &fs, serialization_context &context, std::string x);
 void deserialize(std::iostream &fs, serialization_context &context, std::string &x);
 
-template<class Key, class Value> void serialize(std::iostream &fs,
-						serialization_context &context,
-						std::map<Key, Value> &mp)
+template <class Key, class Value>
+void serialize(std::iostream &fs,
+               serialization_context &context,
+               std::map<Key, Value> &mp)
 {
   fs << "map " << mp.size() << " {" << std::endl;
   assert(fs.good());
-  for (auto it = mp.begin(); it != mp.end(); ++it) {
+  for (auto it = mp.begin(); it != mp.end(); ++it)
+  {
     fs << "  ";
     serialize(fs, context, it->first);
     fs << " -> ";
@@ -124,15 +128,17 @@ template<class Key, class Value> void serialize(std::iostream &fs,
   fs << "}" << std::endl;
 }
 
-template<class Key, class Value> void deserialize(std::iostream &fs,
-						  serialization_context &context,
-						  std::map<Key, Value> &mp)
+template <class Key, class Value>
+void deserialize(std::iostream &fs,
+                 serialization_context &context,
+                 std::map<Key, Value> &mp)
 {
   std::string dummy;
   int size = 0;
   fs >> dummy >> size >> dummy;
   assert(fs.good());
-  for (int i = 0; i < size; i++) {
+  for (int i = 0; i < size; i++)
+  {
     Key k;
     Value v;
     deserialize(fs, context, k);
@@ -143,113 +149,132 @@ template<class Key, class Value> void deserialize(std::iostream &fs,
   fs >> dummy;
 }
 
-template<class X> void serialize(std::iostream &fs, serialization_context &context, X *&x)
+template <class X>
+void serialize(std::iostream &fs, serialization_context &context, X *&x)
 {
   fs << "pointer ";
   serialize(fs, context, *x);
 }
 
-template<class X> void deserialize(std::iostream &fs, serialization_context &context, X *&x)
+template <class X>
+void deserialize(std::iostream &fs, serialization_context &context, X *&x)
 {
   std::string dummy;
   x = new X;
   fs >> dummy;
-  assert (dummy == "pointer");
+  assert(dummy == "pointer");
   deserialize(fs, context, *x);
 }
 
-template<class X> void serialize(std::iostream &fs, serialization_context &context, X &x)
+template <class X>
+void serialize(std::iostream &fs, serialization_context &context, X &x)
 {
   x._serialize(fs, context);
 }
 
-template<class X> void deserialize(std::iostream &fs, serialization_context &context, X &x)
+template <class X>
+void deserialize(std::iostream &fs, serialization_context &context, X &x)
 {
   x._deserialize(fs, context);
 }
 
-class swap_space {
+class swap_space
+{
 public:
   swap_space(backing_store *bs, uint64_t n);
 
-  template<class Referent> class pointer;
+  template <class Referent>
+  class pointer;
 
-  template<class Referent>
-  pointer<Referent> allocate(Referent * tgt) {
+  template <class Referent>
+  pointer<Referent> allocate(Referent *tgt)
+  {
     return pointer<Referent>(this, tgt);
   }
 
   // This pins an object in memory for the duration of a member
   // access.  It's sort of an instance of the "resource aquisition is
   // initialization" paradigm.
-  template<class Referent>
-  class pin {
+  template <class Referent>
+  class pin
+  {
   public:
-    const Referent * operator->(void) const {
+    const Referent *operator->(void) const
+    {
       assert(ss->objects.count(target) > 0);
       debug(std::cout << "Accessing (constly) " << target
-	    << " (" << ss->objects[target]->target << ")" << std::endl);
+                      << " (" << ss->objects[target]->target << ")" << std::endl);
       access(target, false);
       return (const Referent *)ss->objects[target]->target;
     }
 
-    Referent * operator->(void) {
+    Referent *operator->(void)
+    {
       assert(ss->objects.count(target) > 0);
       debug(std::cout << "Accessing " << target
-	    << " (" << ss->objects[target]->target << ")" << std::endl);
+                      << " (" << ss->objects[target]->target << ")" << std::endl);
       access(target, true);
       return (Referent *)ss->objects[target]->target;
     }
 
     pin(const pointer<Referent> *p)
-      : ss(NULL),
-	target(0)
+        : ss(NULL),
+          target(0)
     {
       dopin(p->ss, p->target);
     }
 
     pin(void)
-      : ss(NULL),
-	target(0)
-    {}
+        : ss(NULL),
+          target(0)
+    {
+    }
 
-    ~pin(void) {
+    ~pin(void)
+    {
       unpin();
     }
 
-    pin &operator=(const pin &other) {
-      if (&other != this) {
-	unpin();
-	dopin(other.ss, other.target);
+    pin &operator=(const pin &other)
+    {
+      if (&other != this)
+      {
+        unpin();
+        dopin(other.ss, other.target);
       }
     }
-    
+
   private:
-    void unpin(void) {
+    void unpin(void)
+    {
       debug(std::cout << "Unpinning " << target
-	    << " (" << ss->objects[target]->target << ")" << std::endl);
-      if (target > 0) {
-	assert(ss->objects.count(target) > 0);
-	ss->objects[target]->pincount--;
-	ss->maybe_evict_something();
+                      << " (" << ss->objects[target]->target << ")" << std::endl);
+      if (target > 0)
+      {
+        assert(ss->objects.count(target) > 0);
+        ss->objects[target]->pincount--;
+        ss->maybe_evict_something();
       }
       ss = NULL;
       target = 0;
     }
 
-    void dopin(swap_space *newss, uint64_t newtarget) {
+    void dopin(swap_space *newss, uint64_t newtarget)
+    {
       assert(ss == NULL && target == 0);
       ss = newss;
       target = newtarget;
-      if (target > 0) {
-	assert(ss->objects.count(target) > 0);
-	debug(std::cout << "Pinning " << target
-	      << " (" << ss->objects[target]->target << ")" << std::endl);
-	ss->objects[target]->pincount++;
+      if (target > 0)
+      {
+        assert(ss->objects.count(target) > 0);
+        debug(std::cout << "Pinning " << target
+                        << " (" << ss->objects[target]->target << ")" << std::endl);
+        ss->objects[target]->pincount++;
       }
     }
-    
-    void access(uint64_t tgt, bool dirty) const {
+
+    void access(uint64_t tgt, bool dirty) const
+    {
       assert(ss->objects.count(tgt) > 0);
       object *obj = ss->objects[tgt];
       ss->lru_pqueue.erase(obj);
@@ -259,118 +284,140 @@ public:
       ss->load<Referent>(tgt);
       ss->maybe_evict_something();
     }
-  
+
     swap_space *ss;
     uint64_t target;
   };
-  
-  template<class Referent>
-  class pointer : public serializable {
+
+  template <class Referent>
+  class pointer : public serializable
+  {
     friend class swap_space;
     friend class pin<Referent>;
-    
+
   public:
-    pointer(void) :
-      ss(NULL),
-      target(0)
-    {}
-    
-    pointer(const pointer &other) {
+    pointer(void) : ss(NULL),
+                    target(0)
+    {
+    }
+
+    pointer(const pointer &other)
+    {
       ss = other.ss;
       target = other.target;
-      if (target > 0) {
-	assert(ss->objects.count(target) > 0);
-	ss->objects[target]->refcount++;
+      if (target > 0)
+      {
+        assert(ss->objects.count(target) > 0);
+        ss->objects[target]->refcount++;
       }
     }
 
-    ~pointer(void) {
+    ~pointer(void)
+    {
       depoint();
     }
 
-    void depoint(void) {
+    void depoint(void)
+    {
       if (target == 0)
-	return;
+        return;
       assert(ss->objects.count(target) > 0);
 
       object *obj = ss->objects[target];
       assert(obj->refcount > 0);
-      if ((--obj->refcount) == 0) {
-	debug(std::cout << "Erasing " << target << std::endl);
-	// Load it into memory so we can recursively free stuff
-	if (obj->target == NULL) {
-	  assert(obj->bsid > 0);
-	  if (!obj->is_leaf) {
-	    ss->load<Referent>(target);
-	  } else {
-	    debug(std::cout << "Skipping load of leaf " << target << std::endl);
-	  }
-	}
-	ss->objects.erase(target);
-	ss->lru_pqueue.erase(obj);
-	if (obj->target)
-	  delete obj->target;
-	ss->current_in_memory_objects--;
-	if (obj->bsid > 0)
-	  ss->backstore->deallocate(obj->bsid);
-	delete obj;
+      if ((--obj->refcount) == 0)
+      {
+        debug(std::cout << "Erasing " << target << std::endl);
+        // Load it into memory so we can recursively free stuff
+        if (obj->target == NULL)
+        {
+          assert(obj->bsid > 0);
+          if (!obj->is_leaf)
+          {
+            ss->load<Referent>(target);
+          }
+          else
+          {
+            debug(std::cout << "Skipping load of leaf " << target << std::endl);
+          }
+        }
+        ss->objects.erase(target);
+        ss->lru_pqueue.erase(obj);
+        if (obj->target)
+          delete obj->target;
+        ss->current_in_memory_objects--;
+        if (obj->bsid > 0)
+          ss->backstore->deallocate(obj->bsid);
+        delete obj;
       }
       target = 0;
     }
 
-    pointer & operator=(const pointer &other) {
-      if (&other != this) {
-	depoint();
-	ss = other.ss;
-	target = other.target;
-	if (target > 0) {
-	  assert(ss->objects.count(target) > 0);
-	  ss->objects[target]->refcount++;
-	}
+    pointer &operator=(const pointer &other)
+    {
+      if (&other != this)
+      {
+        depoint();
+        ss = other.ss;
+        target = other.target;
+        if (target > 0)
+        {
+          assert(ss->objects.count(target) > 0);
+          ss->objects[target]->refcount++;
+        }
       }
       return *this;
     }
 
-    bool operator==(const pointer &other) const {
+    bool operator==(const pointer &other) const
+    {
       return ss == other.ss && target == other.target;
     }
 
-    bool operator!=(const pointer &other) const {
+    bool operator!=(const pointer &other) const
+    {
       return !operator==(other);
     }
-	  
+
     // const Referent * operator->(void) const {
     //   ss->access(target, false);
     //   return ss->objects[target].target;
     // }
 
-    const pin<Referent> operator->(void) const {
+    const pin<Referent> operator->(void) const
+    {
       return pin<Referent>(this);
     }
 
-    pin<Referent> operator->(void) {
+    pin<Referent> operator->(void)
+    {
       return pin<Referent>(this);
     }
 
-    pin<Referent> get_pin(void) {
+    pin<Referent> get_pin(void)
+    {
       return pin<Referent>(this);
     }
-    
-    const pin<Referent> get_pin(void) const {
+
+    const pin<Referent> get_pin(void) const
+    {
       return pin<Referent>(this);
     }
-    
-    bool is_in_memory(void) const {
+
+    bool is_in_memory(void) const
+    {
       assert(ss->objects.count(target) > 0);
       return target > 0 && ss->objects[target]->target != NULL;
     }
 
-    bool is_dirty(void) const {
+    bool is_dirty(void) const
+    {
       assert(ss->objects.count(target) > 0);
       return target > 0 && ss->objects[target]->target && ss->objects[target]->target_is_dirty;
     }
 
-    void _serialize(std::iostream &fs, serialization_context &context) {
+    void _serialize(std::iostream &fs, serialization_context &context)
+    {
       assert(target > 0);
       assert(context.ss.objects.count(target) > 0);
       fs << target << " ";
@@ -378,8 +425,9 @@ public:
       assert(fs.good());
       context.is_leaf = false;
     }
-    
-    void _deserialize(std::iostream &fs, serialization_context &context) {
+
+    void _deserialize(std::iostream &fs, serialization_context &context)
+    {
       assert(target == 0);
       ss = &context.ss;
       fs >> target;
@@ -409,21 +457,20 @@ public:
       ss->current_in_memory_objects++;
       ss->maybe_evict_something();
     }
-
   };
-  
+
 private:
-  backing_store *backstore;  
+  backing_store *backstore;
 
   uint64_t next_id = 1;
   uint64_t next_access_time = 0;
-  
-  class object {
+
+  class object
+  {
   public:
-    
-    object(swap_space *sspace, serializable * tgt);
-    
-    serializable * target;
+    object(swap_space *sspace, serializable *tgt);
+
+    serializable *target;
     uint64_t id;
     uint64_t bsid;
     bool is_leaf;
@@ -435,10 +482,12 @@ private:
 
   static bool cmp_by_last_access(object *a, object *b);
 
-  template<class Referent>
-  void load(uint64_t tgt) {
+  template <class Referent>
+  void load(uint64_t tgt)
+  {
     assert(objects.count(tgt) > 0);
-    if (objects[tgt]->target == NULL) {
+    if (objects[tgt]->target == NULL)
+    {
       object *obj = objects[tgt];
       debug(std::cout << "Loading " << obj->id << std::endl);
       std::iostream *in = backstore->get(obj->bsid);
@@ -452,10 +501,10 @@ private:
   }
 
   void set_cache_size(uint64_t sz);
-  
+
   void write_back(object *obj);
   void maybe_evict_something(void);
-  
+
   uint64_t max_in_memory_objects;
   uint64_t current_in_memory_objects = 0;
   std::unordered_map<uint64_t, object *> objects;
